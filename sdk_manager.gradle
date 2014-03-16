@@ -41,7 +41,15 @@ ext.readLocalPropertiesValue = { key ->
     }
 
     Properties properties = new Properties()
-    properties.load(localPropFile.newDataInputStream())
+    def reader = localPropFile.newReader("UTF-8")
+    try {
+        properties.load(reader)
+    } catch (IOException e) {
+        throw new RuntimeException("Unable to read ${localPropFile}", e)
+    } finally {
+        reader.close()
+    }
+
     return properties.getProperty(key)
 }
 
