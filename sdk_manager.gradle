@@ -75,10 +75,11 @@ ext.installAndroidSupportRepository = { sdkDir=readLocalPropertiesValue("sdk.dir
 private void installSdkComponents(final String sdkDir, final List<String> components) {
     def workers = []
     def sdkToolsAndroidExecFilePath = findSdkToolsAndroidExecFile(sdkDir)
-    components.each { component ->
-        workers.add(Thread.start{ runInstall(sdkToolsAndroidExecFilePath, component) })
+
+    if (components.size == 0) {
+        return
     }
-    workers*.join()
+    runInstall(sdkToolsAndroidExecFilePath, components.join(","))
 }
 
 private def buildComponents(sdkDir, compileSdkVersion, buildToolsRevision) {
@@ -99,23 +100,49 @@ private def buildComponents(sdkDir, compileSdkVersion, buildToolsRevision) {
 }
 
 private def runInstall(String sdkToolsAndroidExecFilePath, component) {
-    def leftProc = "echo y".execute()
-    def rightProc = [
+    def cmd = [
             sdkToolsAndroidExecFilePath,
-            "update",
-            "sdk",
+            "update", "sdk",
             "--no-ui",
-            "-a",
-            "--filter",
-            "${component}"].execute()
-
-    pipe(leftProc, rightProc)
-}
-
-private def pipe(leftProc, rightProc) {
-    leftProc | rightProc
-    rightProc.in.eachLine { line -> println line }
-    rightProc.waitFor()
+            "--all",
+            "--filter", "${component}"]
+    println "Execute: ${cmd.toString()}"
+    def updateSdkProc = cmd.execute()
+    updateSdkProc.withWriter { writer ->
+        def is = updateSdkProc.in
+        String lastLine = ""
+        byte[] bytes = new byte[2048]
+        ByteArrayOutputStream baos = new ByteArrayOutputStream()
+        int length = 0
+        while ((length = is.read(bytes)) >= 0) {
+            def lf = 0x0A
+            int lastLfIdx = -1
+            for (int idx = length - 1; idx >= 0; --idx) {
+                if (bytes[idx] == lf) {
+                    lastLfIdx = idx
+                    break
+                }
+            }
+            if (lastLfIdx != -1) {
+                baos.write(bytes, 0, lastLfIdx)
+                String str = baos.toString("UTF-8")
+                baos.reset()
+                println str
+                baos.write(bytes, lastLfIdx + 1, length - (lastLfIdx + 1))
+            } else {
+                baos.write(bytes, 0, length)
+            }
+            String str = baos.toString("UTF-8")
+            if (str ==~ /Do you accept the license .*/) {
+                writer << "y\n"
+                writer.flush();
+            }
+        }
+        String str = baos.toString("UTF-8")
+        baos.reset()
+        println str
+    }
+    updateSdkProc.waitFor()
 }
 
 private String findSdkToolsAndroidExecFile(String sdkDir) {
