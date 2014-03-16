@@ -68,8 +68,27 @@ ext.installRequiredSdk = { appExtension, sdkDir=readLocalPropertiesValue("sdk.di
     installSdkComponents(sdkDir, buildComponents(sdkDir, compileSdkVersion, buildToolsRevision))
 }
 
-ext.installAndroidSupportRepository = { sdkDir=readLocalPropertiesValue("sdk.dir") ->
-    installSdkComponents(sdkDir, ["extra-android-m2repository"])
+ext.installAndroidSdkComponentsIfNotInstalled = { components, sdkDir=readLocalPropertiesValue("sdk.dir") ->
+    def notInstalledComponents = filterNotInstalledComponents(sdkDir, components)
+    if (notInstalledComponents.size() == 0) { return }
+    def sdkToolsAndroidExecFilePath = findSdkToolsAndroidExecFile(sdkDir)
+    runInstall(sdkToolsAndroidExecFilePath, notInstalledComponents.join(","))
+}
+
+private List<String> filterNotInstalledComponents(final String sdkDir, final List<String> components) {
+    def sdkToolsAndroidExecFilePath = findSdkToolsAndroidExecFile(sdkDir)
+    def listSdkProc = [
+            sdkToolsAndroidExecFilePath,
+            "list", "sdk", "--extended",].execute()
+    def sout = new StringBuffer()
+    def serr = new StringBuffer()
+    listSdkProc.consumeProcessOutput(sout, serr)
+    listSdkProc.waitFor()
+    if (listSdkProc.exitValue() != 0) {
+        throw new RuntimeException("`android list sdk` command failed")
+    }
+    def output = sout.toString()
+    return components.grep { output.indexOf(it) >= 0 }
 }
 
 private void installSdkComponents(final String sdkDir, final List<String> components) {
