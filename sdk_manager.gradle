@@ -53,7 +53,17 @@ ext.readLocalPropertiesValue = { key ->
     return properties.getProperty(key)
 }
 
-ext.installRequiredSdk = { appExtension, sdkDir=readLocalPropertiesValue("sdk.dir") ->
+ext.findAndroidSdkDir = {
+    String sdkDir;
+    if ((sdkDir = readLocalPropertiesValue("sdk.dir")) != "") {
+        return sdkDir
+    } else if ((sdkDir = System.getenv("ANDROID_HOME")) != null) {
+        return sdkDir
+    }
+    throw new RuntimeException("Can't find Android SDK directory")
+}
+
+ext.installRequiredSdk = { appExtension, sdkDir=findAndroidSdkDir() ->
     def compileSdkVersion = appExtension.compileSdkVersion
     def buildToolsRevision = appExtension.buildToolsRevision
 
@@ -68,7 +78,7 @@ ext.installRequiredSdk = { appExtension, sdkDir=readLocalPropertiesValue("sdk.di
     installSdkComponents(sdkDir, buildComponents(sdkDir, compileSdkVersion, buildToolsRevision))
 }
 
-ext.installAndroidSdkComponentsIfNotInstalled = { components, sdkDir=readLocalPropertiesValue("sdk.dir") ->
+ext.installAndroidSdkComponentsIfNotInstalled = { components, sdkDir=findAndroidSdkDir() ->
     def notInstalledComponents = filterNotInstalledComponents(sdkDir, components)
     if (notInstalledComponents.size() == 0) { return }
     def sdkToolsAndroidExecFilePath = findSdkToolsAndroidExecFile(sdkDir)
