@@ -35,12 +35,13 @@ ext.guessNdkDir = {
 }
 
 ext.readLocalPropertiesValue = { key ->
-    if (!project.file("local.properties").exists()) {
+    File localPropFile = rootProject.file("local.properties")
+    if (!localPropFile.exists()) {
         return ""
     }
 
     Properties properties = new Properties()
-    properties.load(project.file("local.properties").newDataInputStream())
+    properties.load(localPropFile.newDataInputStream())
     return properties.getProperty(key)
 }
 
