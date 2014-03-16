@@ -65,9 +65,17 @@ ext.installRequiredSdk = { appExtension, sdkDir=readLocalPropertiesValue("sdk.di
         throw new GradleException("sdkDir does not exist")
     }
 
+    installSdkComponents(sdkDir, buildComponents(sdkDir, compileSdkVersion, buildToolsRevision))
+}
+
+ext.installAndroidSupportRepository = { sdkDir=readLocalPropertiesValue("sdk.dir") ->
+    installSdkComponents(sdkDir, ["extra-android-m2repository"])
+}
+
+private void installSdkComponents(final String sdkDir, final List<String> components) {
     def workers = []
     def sdkToolsAndroidExecFilePath = findSdkToolsAndroidExecFile(sdkDir)
-    buildComponents(sdkDir, compileSdkVersion, buildToolsRevision).each { component ->
+    components.each { component ->
         workers.add(Thread.start{ runInstall(sdkToolsAndroidExecFilePath, component) })
     }
     workers*.join()
